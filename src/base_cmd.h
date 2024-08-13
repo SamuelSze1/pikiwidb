@@ -132,6 +132,7 @@ const std::string kCmdNameLPushx = "lpushx";
 const std::string kCmdNameRPush = "rpush";
 const std::string kCmdNameRPushx = "rpushx";
 const std::string kCmdNameLPop = "lpop";
+const std::string kCmdNameBLPop = "blpop";
 const std::string kCmdNameRPop = "rpop";
 const std::string kCmdNameLRem = "lrem";
 const std::string kCmdNameLRange = "lrange";
@@ -317,6 +318,8 @@ class BaseCmd : public std::enable_shared_from_this<BaseCmd> {
 
   uint32_t GetCmdID() const;
 
+ void ServeAndUnblockConns(PClient* client);
+
  protected:
   // Execute a specific command
   virtual void DoCmd(PClient* client) = 0;
@@ -363,4 +366,30 @@ class BaseCmdGroup : public BaseCmd {
  private:
   std::map<std::string, std::unique_ptr<BaseCmd>> subCmds_;
 };
+
+class BlockedConnNode {
+ public:
+  virtual ~BlockedConnNode() {}
+  BlockedConnNode(int64_t expire_time, PClient* client)
+      : expire_time_(expire_time), client_(client) {}
+  bool IsExpired();
+  PClient* GetBlockedClient() {return client_;}
+
+ private:
+  int64_t expire_time_;
+  PClient* client_;
+};
+
+struct BlockKey {  // this data struct is made for the scenario of multi dbs in pika.
+  int db_id;
+  std::string key;
+  bool operator==(const BlockKey& p) const { return p.db_id == db_id && p.key == key; }
+};
+
+struct BlockKeyHash {
+  std::size_t operator()(const BlockKey& k) const {
+    return std::hash<int>{}(k.db_id) ^ std::hash<std::string>{}(k.key);
+  }
+};
+
 }  // namespace pikiwidb

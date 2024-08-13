@@ -104,6 +104,41 @@ BaseCmd* BaseCmdGroup::GetSubCmd(const std::string& cmdName) {
   return subCmd->second.get();
 }
 
+void BaseCmd::ServeAndUnblockConns(PClient* client) {
+  pikiwidb::BlockKey key{client->GetCurrentDB(), client->Key()};
+  std::shared_lock<std::shared_mutex> read_latch(g_pikiwidb->GetBlockMtx());
+  auto& key_to_conns = g_pikiwidb->GetMapFromKeyToConns();
+  auto it = key_to_conns.find(key);
+  if (it == key_to_conns.end()) {
+      // no client is waitting for this key
+      return;
+  }
+  read_latch.unlock();
+
+  std::unique_lock<std::shared_mutex> write_lock(g_pikiwidb->GetBlockMtx());
+  auto& waitting_list = it->second;
+  std::vector<std::string> elements;
+  storage::Status s;
+
+  // traverse this list from head to tail(in the order of adding sequence) ,means "first blocked, first get served“
+  for (auto conn_blocked = waitting_list->begin(); conn_blocked != waitting_list->end();) {
+    PClient* BlockedClient = (*conn_blocked).GetBlockedClient();
+    s = PSTORE.GetBackend(client->GetCurrentDB())->GetStorage()->LPop(key.key, 1, &elements);
+    if (s.ok()) {
+      BlockedClient->AppendArrayLen(2);
+      BlockedClient->AppendString(client->Key());
+      BlockedClient->AppendString(elements[0]);
+    } else if (s.IsNotFound()) {
+      // this key has no more elements to serve more blocked conn.
+      break;
+    } else {
+      BlockedClient->SetRes(CmdRes::kErrOther, s.ToString());
+    }
+    BlockedClient->SendPacket();
+    conn_blocked = waitting_list->erase(conn_blocked);  // remove this conn from current waiting list
+  }
+}
+
 bool BaseCmdGroup::DoInitial(PClient* client) {
   client->SetSubCmdName(client->argv_[1]);
   if (!subCmds_.contains(client->SubCmdName())) {
@@ -111,6 +146,18 @@ bool BaseCmdGroup::DoInitial(PClient* client) {
     return false;
   }
   return true;
+}
+
+bool BlockedConnNode::IsExpired() {
+  if (expire_time_ == 0) {
+    return false;
+  }
+  auto now = std::chrono::system_clock::now();
+  int64_t now_in_ms = std::chrono::time_point_cast<std::chrono::milliseconds>(now).time_since_epoch().count();
+  if (expire_time_ <= now_in_ms) {
+    return true;
+  }
+  return false;
 }
 
 }  // namespace pikiwidb
