@@ -318,7 +318,7 @@ class BaseCmd : public std::enable_shared_from_this<BaseCmd> {
 
   uint32_t GetCmdID() const;
 
- void ServeAndUnblockConns(PClient* client);
+  void ServeAndUnblockConns(PClient* client);
 
  protected:
   // Execute a specific command
@@ -370,10 +370,9 @@ class BaseCmdGroup : public BaseCmd {
 class BlockedConnNode {
  public:
   virtual ~BlockedConnNode() {}
-  BlockedConnNode(int64_t expire_time, PClient* client)
-      : expire_time_(expire_time), client_(client) {}
+  BlockedConnNode(int64_t expire_time, PClient* client) : expire_time_(expire_time), client_(client) {}
   bool IsExpired();
-  PClient* GetBlockedClient() {return client_;}
+  PClient* GetBlockedClient() { return client_; }
 
  private:
   int64_t expire_time_;

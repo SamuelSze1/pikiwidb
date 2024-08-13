@@ -110,8 +110,8 @@ void BaseCmd::ServeAndUnblockConns(PClient* client) {
   auto& key_to_conns = g_pikiwidb->GetMapFromKeyToConns();
   auto it = key_to_conns.find(key);
   if (it == key_to_conns.end()) {
-      // no client is waitting for this key
-      return;
+    // no client is waitting for this key
+    return;
   }
   read_latch.unlock();
 

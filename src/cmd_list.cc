@@ -6,9 +6,9 @@
  */
 
 #include "cmd_list.h"
+#include "pikiwidb.h"
 #include "pstd_string.h"
 #include "store.h"
-#include "pikiwidb.h"
 
 namespace pikiwidb {
 LPushCmd::LPushCmd(const std::string& name, int16_t arity)
@@ -141,7 +141,7 @@ bool BLPopCmd::DoInitial(PClient* client) {
   constexpr int64_t seconds_of_ten_years = 10 * 365 * 24 * 3600;
   if (timeout < 0 || timeout > seconds_of_ten_years) {
     client->SetRes(CmdRes::kErrOther,
-                "timeout can't be a negative value and can't exceed the number of seconds in 10 years");
+                   "timeout can't be a negative value and can't exceed the number of seconds in 10 years");
     return false;
   }
 
@@ -161,13 +161,13 @@ void BLPopCmd::DoCmd(PClient* client) {
     client->AppendString(client->Key());
     client->AppendString(elements[0]);
     return;
-  } else if (s.IsNotFound()){
+  } else if (s.IsNotFound()) {
     BlockThisClientToWaitLRPush(elements, expire_time_, client);
   } else {
     client->SetRes(CmdRes::kErrOther, s.ToString());
     return;
   }
-} 
+}
 
 void BLPopCmd::BlockThisClientToWaitLRPush(std::vector<std::string>& keys, int64_t expire_time, PClient* client) {
   std::unique_lock<std::shared_mutex> latch(g_pikiwidb->GetBlockMtx());

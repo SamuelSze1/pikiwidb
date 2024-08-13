@@ -188,8 +188,8 @@ bool PikiwiDB::Init() {
 
   event_server_->InitTimer(10);
 
-  //auto task = std::bind(&PikiwiDB::ScanExpiredBlockedConnsOfBlrpop, this);
-  //loop->ScheduleRepeatedly(250, task);
+  // auto task = std::bind(&PikiwiDB::ScanExpiredBlockedConnsOfBlrpop, this);
+  // loop->ScheduleRepeatedly(250, task);
 
   auto timerTask = std::make_shared<net::CommonTimerTask>(1000);
   timerTask->SetCallback([]() { PREPL.Cron(); });
