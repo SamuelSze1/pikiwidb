@@ -111,6 +111,24 @@ void PikiwiDB::OnNewConnection(uint64_t connId, std::shared_ptr<pikiwidb::PClien
   client->OnConnect();
 }
 
+void PikiwiDB::ScanExpiredBlockedConnsOfBlrpop() {
+  std::unique_lock<std::shared_mutex> latch(block_mtx_);
+  auto& key_to_blocked_conns = g_pikiwidb->GetMapFromKeyToConns();
+  for (auto& it : key_to_blocked_conns) {
+    auto& conns_list = it.second;
+    for (auto conn_node = conns_list->begin(); conn_node != conns_list->end();) {
+      if (conn_node->IsExpired()) {
+        PClient* conn_ptr = conn_node->GetBlockedClient();
+        conn_ptr->AppendString("");
+        conn_ptr->SendPacket();
+        conn_node = conns_list->erase(conn_node);
+      } else {
+        conn_node++;
+      }
+    }
+  }
+}
+
 bool PikiwiDB::Init() {
   char runid[kRunidSize + 1] = "";
   getRandomHexChars(runid, kRunidSize);
@@ -170,9 +188,16 @@ bool PikiwiDB::Init() {
 
   event_server_->InitTimer(10);
 
+  // auto task = std::bind(&PikiwiDB::ScanExpiredBlockedConnsOfBlrpop, this);
+  // loop->ScheduleRepeatedly(250, task);
+
   auto timerTask = std::make_shared<net::CommonTimerTask>(1000);
   timerTask->SetCallback([]() { PREPL.Cron(); });
   event_server_->AddTimerTask(timerTask);
+
+  auto BLRPopTimerTask = std::make_shared<net::CommonTimerTask>(250);
+  BLRPopTimerTask->SetCallback(std::bind(&PikiwiDB::ScanExpiredBlockedConnsOfBlrpop, this));
+  event_server_->AddTimerTask(BLRPopTimerTask);
 
   return true;
 }
