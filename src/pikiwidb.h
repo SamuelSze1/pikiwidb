@@ -50,6 +50,14 @@ class PikiwiDB final {
     event_server_->SendPacket(client, std::move(msg));
   }
 
+  std::unordered_map<pikiwidb::BlockKey, std::unique_ptr<std::list<pikiwidb::BlockedConnNode>>, pikiwidb::BlockKeyHash>&
+  GetMapFromKeyToConns() {
+    return key_to_blocked_conns_;
+  }
+
+  std::shared_mutex& GetBlockMtx() { return block_mtx_; };
+
+  void ScanEvictedBlockedConnsOfBlrpop();
   inline void SendPacket2Client(const std::shared_ptr<pikiwidb::PClient>& client, std::string&& msg) {
     event_server_->SendPacket(client, std::move(msg));
   }
@@ -78,6 +86,21 @@ class PikiwiDB final {
 
   std::unique_ptr<net::EventServer<std::shared_ptr<pikiwidb::PClient>>> event_server_;
   uint32_t cmd_id_ = 0;
+
+  /*
+   *  Blpop/BRpop used
+   */
+  /*  key_to_blocked_conns_:
+   *  mapping from key to a list that stored the nodes of client-connections that
+   *  were blocked by command blpop/brpop with key.
+   */
+  std::unordered_map<pikiwidb::BlockKey, std::unique_ptr<std::list<pikiwidb::BlockedConnNode>>, pikiwidb::BlockKeyHash>
+      key_to_blocked_conns_;
+
+  /*
+   * latch of above map.
+   */
+  std::shared_mutex block_mtx_;
 };
 
 extern std::unique_ptr<PikiwiDB> g_pikiwidb;

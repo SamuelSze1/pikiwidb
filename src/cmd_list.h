@@ -31,6 +31,32 @@ class RPushCmd : public BaseCmd {
   void DoCmd(PClient* client) override;
 };
 
+class BLPopCmd : public BaseCmd {
+ public:
+  BLPopCmd(const std::string& name, int16_t arity);
+
+ protected:
+  bool DoInitial(PClient* client) override;
+
+ private:
+  void DoCmd(PClient* client) override;
+
+  int64_t expire_time_{0};
+};
+
+class BRPopCmd : public BaseCmd {
+ public:
+  BRPopCmd(const std::string& name, int16_t arity);
+
+ protected:
+  bool DoInitial(PClient* client) override;
+
+ private:
+  void DoCmd(PClient* client) override;
+
+  int64_t expire_time_{0};
+};
+
 class RPopCmd : public BaseCmd {
  public:
   RPopCmd(const std::string& name, int16_t arity);
